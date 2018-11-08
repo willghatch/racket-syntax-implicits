@@ -14,11 +14,20 @@
                    (syntax-implicit-struct-gensym si-struct)
                    location-stx))
   (define (sil-val si-struct context-stx location-stx)
-    (syntax-local-value (sil->gensym-stx si-struct context-stx location-stx)))
-  (struct syntax-implicit-struct (gensym)
-    #:property prop:procedure (λ (inst stx)
-                                ((sil-val inst stx stx)
-                                 stx))))
+    (syntax-local-value (sil->gensym-stx si-struct context-stx location-stx)
+                        (λ () (syntax-implicit-struct-original-default si-struct))))
+
+  (define (syntax-implicit-value stx #:context [context stx])
+    (define slv (syntax-local-value stx))
+    (if (syntax-implicit-struct? slv)
+        (sil-val slv context stx)
+        (error 'syntax-implicit-value "Not a syntax-implicit: ~a" stx)))
+
+  (struct syntax-implicit-struct (gensym original-default)
+    #:property
+    prop:procedure
+    (λ (inst stx)
+      ((sil-val inst stx stx) stx))))
 
 (require
  racket/splicing
@@ -28,12 +37,6 @@
   (submod "." syntax-implicit-struct)
   ))
 
-(define-for-syntax (syntax-implicit-value stx #:context [context stx])
-  (define slv (syntax-local-value stx))
-  (if (syntax-implicit-struct? slv)
-      (sil-val slv context stx)
-      (error 'syntax-implicit-value "Not a syntax-implicit: ~a" stx)))
-
 (define-syntax (define-syntax-implicit stx)
   (syntax-parse stx
     [(_ name:id binding:expr)
@@ -41,8 +44,11 @@
        (gensym (format "~a_implicit-gensym_" (syntax->datum #'name))))
      (with-syntax ([implicit-gensym (datum->syntax #'name implicit-gensym)])
        #'(begin
-           (define-syntax implicit-gensym binding)
-           (define-syntax name (syntax-implicit-struct 'implicit-gensym))))]))
+           (define-for-syntax implicit-original-binding binding)
+           (define-syntax implicit-gensym implicit-original-binding)
+           (define-syntax name (syntax-implicit-struct
+                                'implicit-gensym
+                                implicit-original-binding))))]))
 
 
 (define-for-syntax (with-syntax-implicit* stx context)
@@ -124,13 +130,93 @@
   ;; This is the real test.
   (check-equal?
    (with-syntax-implicits ([implicit-1 (syntax-parser [_ #''mars])])
-     (use-implicit/jupiter))
-   'jupiter)
+     (list
+      (use-implicit/jupiter)
+      (implicit-1)))
+   '(jupiter mars))
 
-  #|
-  TODO - be sure I can make a macro-defining macro that uses the site where the new macro is defined as the site to get the implicit value from.
-  TODO - test implicit chaining (IE an implicit uses and implicit which uses an implicit -- they should all get their implicit value from the same place).  For now this should use context on parentheses, I guess, but eventually there should be an implicit context syntax property.  The problem is that syntax properties don't accrue scopes, so going through macro transformations will break the context.
-  TODO - create comparison examples -- make a normal binding, syntax parameter, and syntax implicit together, then show a bunch of similar uses of them to show how they differ.
-  |#
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;;; Test chaining
+
+  (define-syntax-implicit chain-1
+    (syntax-parser
+      [stx #`(list 'chain-1-a #,(datum->syntax #'stx (list #'chain-2)))]))
+  (define-syntax-implicit chain-2
+    (syntax-parser
+      [stx #`(list 'chain-2-a #,(datum->syntax #'stx (list #'chain-3)))]))
+  (define-syntax-implicit chain-3
+    (syntax-parser
+      [stx #`(list 'chain-3-a)]))
+
+  (check-equal?
+   (chain-1)
+   '(chain-1-a (chain-2-a (chain-3-a))))
+
+  (with-syntax-implicits ([chain-2
+                           (syntax-parser
+                             [stx #`(list 'chain-2-b
+                                          #,(datum->syntax #'stx (list #'chain-3)))])])
+    (check-equal?
+     (chain-1)
+     '(chain-1-a (chain-2-b (chain-3-a))))
+
+    (with-syntax-implicits ([chain-1
+                             (syntax-parser
+                               [stx #`(list 'chain-1-b
+                                            #,(datum->syntax #'stx
+                                                             (list #'chain-2)))])]
+                            [chain-3 (syntax-parser [stx #`(list 'chain-3-b)])])
+      (check-equal? (chain-1)
+                    '(chain-1-b (chain-2-b (chain-3-b))))))
+
+  (with-syntax-implicits ([chain-1
+                           (syntax-parser
+                               [stx #`(list 'chain-1-c
+                                            #,(datum->syntax #'stx
+                                                             (list #'chain-2)))])])
+    (check-equal? (chain-1)
+                  '(chain-1-c (chain-2-a (chain-3-a)))))
+
+
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;;; Test macro-defining macros
+
+
+  (splicing-with-syntax-implicits
+   ([implicit-1 (syntax-parser [_ #''in-macro-definitions-1])])
+   ;; This one defines a macro that uses the context that the NEW macro is
+   ;; defined in -- IE it uses some future context but not necessarily the
+   ;; final context like a syntax parameter would.  It ignores the context HERE.
+   (define-syntax (define-macro-that-uses-context stx)
+     (syntax-parse stx
+       [(_ name)
+        #'(define-syntax (name i-stx)
+            (syntax-parse i-stx
+              [_ (datum->syntax #'name (list #'implicit-1))]))]))
+   ;; This one ignores all later context -- it uses the context HERE.
+   (define-syntax (define-macro-that-ignores-context stx)
+     (syntax-parse stx
+       [(_ name)
+        #'(define-syntax (name i-stx)
+            (syntax-parse i-stx
+              [_ #'(implicit-1)]))])))
+
+  (splicing-with-syntax-implicits
+   ([implicit-1 (syntax-parser [_ #''in-definition-1])])
+   (define-macro-that-uses-context use-1)
+   (define-macro-that-ignores-context ignore-1))
+
+  (with-syntax-implicits ([implicit-1
+                           (syntax-parser [_ #''in-within-macro-use-use-1])])
+    (check-equal?
+     (implicit-1)
+     'in-within-macro-use-use-1)
+    (check-equal?
+     (use-1)
+     'in-definition-1)
+    (check-equal?
+     (ignore-1)
+     'in-macro-definitions-1))
+
 
   )
