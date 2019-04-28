@@ -1,6 +1,6 @@
 #lang info
 (define deps '("base"
-               "rackunit"
+               "rackunit-lib"
                ))
 #;(define build-deps '("scribble-lib"
                      "racket-doc"))
