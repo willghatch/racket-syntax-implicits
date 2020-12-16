@@ -231,6 +231,12 @@ I originally started using syntax parameters, until I realized that they had the
 I made a one-off version of syntax implicits for one implicit thing, then another, then decided I should make a re-usable library.
 Well, finally, I'm making this library to that end.
 
+@section{Stability}
+
+I'm afraid of commitment.
+So I don't want to commit to stability right now.
+That said, I don't @emph{think} I'll need to change the API in the future.
+So... maybe let me know if you want to rely on it and maybe I'll commit to stability at that point.
 
 @section{Reference}
 
