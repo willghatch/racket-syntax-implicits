@@ -1,4 +1,6 @@
-Documentation is here: https://docs.racket-lang.org/syntax-implicits@syntax-implicits/index.html
+# Syntax Implicits
+
+See the [documentation here](https://docs.racket-lang.org/syntax-implicits@syntax-implicits/index.html).
 
 Syntax-implicits are something that is needed for certain kinds of macros in Racket.
 
@@ -10,16 +12,8 @@ Something similar would be having a macro introduce a non-hygienic identifier --
 
 I have written one-off implementations of the behavior of syntax implicits for those two things, but there are actually many things in Rash that should be implemented as syntax implicits.  Potentially many other libraries or libraries-to-be should use them.  But before really releasing and depending on syntax implicits I want to nail down a good API that I'm happy with.
 
-TODO
+# TODO
 
-* I want to unify syntax-implicits with syntax-parameters.
-** Defining one implicit/parameter should enable its use a la syntax parameters and a la syntax implicits.
-** One parameterize form should be used for use of implicits and parameters.
-** But there should be a way to USE one as a parameter (anchored/determined by the expansion environment when the expander gets to it) or as an implicit (anchored at a macro definition site, anchored at a macro use site, etc).
-
-** Perhaps the bare, default use should be as a parameter (dynamic) while there should be a form that takes some kind of argument to determine anchoring for use as an implicit.
-** Perhaps there should be one name that is used in a parameterize form and and one of either parameter or implicit use, and another form for the other one?
-*** This would be confusing and not very good.
-
-** Perhaps the way to use it in a syntax-parameter fashion should be something like `(syntax-implicit-as-syntax-parameter my-implicit)`.  IE have a wrapper form that does the lookup in the appropriate way.
+* I would like a way to use a syntax-implicit in syntax-parameter fashion -- IE get the dynamically deepest parameterization rather than an anchored parameterization.  Probably I should make some `(syntax-implicit-as-syntax-parameter my-implicit)` form.
+* Currently this implementation uses gensyms, but that has issues with reproducible builds.  I should try non-gensymed uninterned symbols and see if they work and fix the issue.
 
