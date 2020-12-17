@@ -1,4 +1,4 @@
-TODO - add link to documentation hosted on racket-lang.org once the package has built.
+Documentation is here: https://docs.racket-lang.org/syntax-implicits@syntax-implicits/index.html
 
 Syntax-implicits are something that is needed for certain kinds of macros in Racket.
 
