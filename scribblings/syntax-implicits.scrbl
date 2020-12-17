@@ -16,8 +16,6 @@
 
 @defmodule[syntax-implicits]
 
-TODO - give examples from Rash describing original motivation and more realistic use, explain that this package is me finally extracting that to a re-usable library.
-
 
 @section{Guide}
 
