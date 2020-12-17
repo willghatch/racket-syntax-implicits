@@ -19,7 +19,8 @@
 
 @section{Guide}
 
-TL;DR: syntax implicits are a generalization of syntax parameters.
+TL;DR: syntax implicits are basically a generalization of syntax parameters.
+But their use case is mostly disjoint from syntax parameters.
 
 
 Syntax implicits are a way to hygienically have implicit bindings that are configurable for different scopes.
@@ -212,6 +213,7 @@ So we can compare normal identifier binding with @racket[define-syntax] or @rack
 
 If you imagine synatx implicits allowing you to choose site 1 to N+1, syntax parameters are like syntax implicits that are automatically anchored at site N+1.
 However, if site N+1 is what you always want, syntax implicits are more unwieldy than syntax parameters because you have to take more effort to explicitly specify that.
+Importantly, site N+1 in a chain of macros by different authors would require cooperation between those authors -- it's not really realistic to manually use syntax implicits as a replacement for syntax-parameters.
 
 Another way to look at syntax implicits is that they are like the implicit identifiers in Racket such as @racket[#%app], @racket[#%datum], and so on which are automatically inserted by the macro expander.
 But syntax implicits are hygienic, unlike those identifiers.
