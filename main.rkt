@@ -9,12 +9,12 @@
 
 (module syntax-implicit-struct racket/base
   (provide (all-defined-out))
-  (define (sil->gensym-stx si-struct context-stx location-stx)
+  (define (sil->anchor-stx si-struct context-stx location-stx)
     (datum->syntax context-stx
-                   (syntax-implicit-struct-gensym si-struct)
+                   (syntax-implicit-struct-anchor si-struct)
                    location-stx))
   (define (sil-val si-struct context-stx location-stx)
-    (syntax-local-value (sil->gensym-stx si-struct context-stx location-stx)
+    (syntax-local-value (sil->anchor-stx si-struct context-stx location-stx)
                         (λ () (syntax-implicit-struct-original-default si-struct))))
 
   (define (syntax-implicit-value stx #:context [context stx])
@@ -23,7 +23,7 @@
         (sil-val slv context stx)
         (error 'syntax-implicit-value "Not a syntax-implicit: ~a" stx)))
 
-  (struct syntax-implicit-struct (gensym original-default)
+  (struct syntax-implicit-struct (anchor original-default)
     #:property
     prop:procedure
     (λ (inst stx)
@@ -40,14 +40,15 @@
 (define-syntax (define-syntax-implicit stx)
   (syntax-parse stx
     [(_ name:id binding:expr)
-     (define implicit-gensym
-       (gensym (format "~a_implicit-gensym_" (syntax->datum #'name))))
-     (with-syntax ([implicit-gensym (datum->syntax #'name implicit-gensym)])
+     (define implicit-anchor
+       (string->uninterned-symbol
+        (format "~a_implicit-anchor_" (syntax->datum #'name))))
+     (with-syntax ([implicit-anchor (datum->syntax #'name implicit-anchor)])
        #'(begin
            (define-for-syntax implicit-original-binding binding)
-           (define-syntax implicit-gensym implicit-original-binding)
+           (define-syntax implicit-anchor implicit-original-binding)
            (define-syntax name (syntax-implicit-struct
-                                'implicit-gensym
+                                'implicit-anchor
                                 implicit-original-binding))))]))
 
 
@@ -65,14 +66,14 @@
                 "Multiple body forms were given with different scoping information, so there is not a clear choice of info to bind the syntax-implicit to."
                 #'orig-macro))
              (car contexts))))
-     (with-syntax ([(implicit-gensym ...) (map (λ (x)
+     (with-syntax ([(implicit-anchor ...) (map (λ (x)
                                                  (datum->syntax
                                                   context-use
-                                                  (syntax-implicit-struct-gensym
+                                                  (syntax-implicit-struct-anchor
                                                    (syntax-local-value x))
                                                   x))
                                                (syntax->list #'(implicit-name ...)))])
-       #'(let-form ([implicit-gensym new-val] ...)
+       #'(let-form ([implicit-anchor new-val] ...)
                    e ...))]))
 
 (begin-for-syntax
